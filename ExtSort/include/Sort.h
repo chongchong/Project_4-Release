@@ -43,6 +43,10 @@ private:
 
 	static char *CreateTempFilename(char *filename, int pass, int run);
 
+	static int CompareInt(const void *a, const void *b);
+
+	static int CompareString(const void *a, const void *b);
+
 private:
 	int _recLength;
 	int _numBufPages;
@@ -50,6 +54,9 @@ private:
 	char *_outFile;
 	short *_fieldSizes;
 	int _sortKeyIndex;
+	AttrType _sortType;
+	int passZeroRuns;
+	int passOneBeyondRuns;
 };
 
 

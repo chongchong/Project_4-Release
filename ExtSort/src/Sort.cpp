@@ -9,6 +9,10 @@
 
 #include "Sort.h"
 
+
+static int _sortKeyOffset = 0;
+static TupleOrder _sortOrder;
+
 //-------------------------------------------------------------------
 // Sort::CreateTempFilename
 //
@@ -40,7 +44,140 @@ Sort::Sort(
 	int       	numBufPages,	// Number of buffer pages available for sorting.
 	Status 	&s)
 {
-	// Your Implementation
+	// Initialize private instance variables
+	_recLength = 0;
+	for (int i=0;i<numFields;i++) {
+		_recLength += fieldSizes[i];
+	}
+	for (int i=0;i<sortKeyIndex;i++) {
+		_sortKeyOffset += fieldSizes[i];
+	}
+	_numBufPages = numBufPages;
+	_inFile = inFile; // STRCPY?
+	_outFile = outFile;
+	_fieldSizes = fieldSizes;
+	_sortKeyIndex = sortKeyIndex;
+	_sortType = fieldTypes[_sortKeyIndex];
+	_sortOrder = sortOrder;
+	//ascending = sortOrder == Ascending; // delete
+	//sortInt = fieldTypes[_sortKeyIndex] == attrInteger;
+
+	// Pass 0
+	int numTempFiles = 0;
+	PassZero(numTempFiles);
+	if (numTempFiles == 1) { // done, write out
+		RecordID rid; char *recPtr = (char *)malloc(_recLength); int recLen = _recLength;
+		char *fileName =CreateTempFilename(_outFile,0,1);
+		HeapFile passZeroFile(fileName,s); // read temp file
+		assert(s == OK);
+		Scan *scan = passZeroFile.OpenScan(s);
+		assert(s == OK);
+		HeapFile output(_outFile, s);
+		assert(s == OK);
+		while (scan->GetNext(rid,recPtr,recLen) == OK) {
+			output.InsertRecord(recPtr,recLen,rid);
+		}
+		delete fileName;
+		free(recPtr);
+		passZeroFile.DeleteFile();
+		s = OK;
+	} else { // more passes
+
+	}
+
+	// Write out
+	// deallocate the filename string pointed by the returned pointer after using it
+	// Also destroy the temporary HeapFile object when you have finished writing it out.
 }
 
+Status Sort::PassZero(int &numTempFiles) {
+	// Get input file
+	Status status;
+	HeapFile inputFile(_inFile, status);
+	assert(status == OK);
+	int numRecords = inputFile.GetNumOfRecords();
+	int recCounter = 0;
+	//std::cout << "num of records is " << numRecords << std::endl;
 
+	// Allocate memory
+	int areaSize = MINIBASE_PAGESIZE * _numBufPages;
+	char *area = (char *)malloc(areaSize);
+	char *areaPtr = area;
+	RecordID rid; char *recPtr = (char *)malloc(_recLength); int recLen = _recLength;
+	int numRecForSort = std::min(areaSize/_recLength,numRecords); // number of rec in sorting area at once
+
+	// Open Scan
+	Scan *scan = inputFile.OpenScan(status); 
+	assert(status == OK);
+	
+	// Sort
+	passZeroRuns = 0;
+	if (areaSize >= _recLength) { // can fit at least one record
+		while (scan->GetNext(rid,recPtr,recLen) == OK) {
+			recCounter++;
+			// add to memory
+			memcpy(areaPtr,recPtr,recLen);
+			areaPtr += recLen;
+			areaSize -= recLen;
+			if (areaSize < _recLength || recCounter == numRecords) { // can't fit another rec or all recs have been added
+				// sort
+				passZeroRuns++;
+				switch (_sortType) {
+					case attrInteger:
+						std::qsort(area,numRecForSort,_recLength,CompareInt);
+						break;
+					case attrString:
+						std::qsort(area,numRecForSort,_recLength,CompareString);
+					default:
+						break;
+				}
+				// write out
+				char *fileName = CreateTempFilename(_outFile,0,passZeroRuns);
+				HeapFile *tempFile =  new HeapFile(fileName,status);
+				assert(status == OK);
+				areaPtr = area;
+				while (recCounter > 0) { // insert
+					tempFile->InsertRecord(areaPtr,_recLength,rid);
+					recCounter--;
+					areaPtr += _recLength;
+				}
+				numTempFiles++;
+				areaPtr = area; // reset
+				areaSize = MINIBASE_PAGESIZE * _numBufPages;
+				delete fileName;
+			}
+		}
+	}
+
+	free(area);
+	free(recPtr);
+	return FAIL;
+}
+
+Status Sort::PassOneAndBeyond(int numFiles) {
+	return FAIL;
+}
+
+Status Sort::MergeManyToOne(unsigned int numSourceFiles, HeapFile **source, HeapFile *dest) {
+	return FAIL;
+}
+
+Status Sort::OneMergePass(int numStartFiles, int numPass, int &numEndFiles) {
+	return FAIL;
+}
+
+int Sort::CompareInt(const void *a, const void *b) {
+		const char **aa = (const char **)a; 
+		const char **bb = (const char **)b;
+		const int *ia = (int *)((*aa)+_sortKeyOffset);
+		const int *ib = (int *)((*bb)+_sortKeyOffset);
+		return _sortOrder == Ascending ? *ia - *ib : *ib - *ia; 
+	}
+
+int Sort::CompareString(const void *a, const void *b) {
+		const char *sa = (const char *)a+_sortKeyOffset;
+		const char *sb = (const char *)b+_sortKeyOffset;
+		//const char *sa = ((*aa)+_sortKeyOffset);
+		//const char *sb = ((*bb)+_sortKeyOffset);
+		return _sortOrder == Ascending ? strcmp(sa, sb) : strcmp(sb, sa);
+	}
