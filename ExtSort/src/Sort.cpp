@@ -159,15 +159,26 @@ Status Sort::PassZero(int &numTempFiles) {
 }
 
 Status Sort::PassOneAndBeyond(int numFiles) {
-	return FAIL;
+	int numPass=0;
+	while (numFiles >1){
+		numPass++;
+		if (OneMergePass(numFiles, numPass, numFiles)==FAIL) return FAIL;
+	}
 }
 
 Status Sort::MergeManyToOne(unsigned int numSourceFiles, HeapFile **source, HeapFile *dest) {
+	
 	return FAIL;
 }
 
 Status Sort::OneMergePass(int numStartFiles, int numPass, int &numEndFiles) {
-	return FAIL;
+	int numLeftFiles = numStartFiles;
+	while (numLeftFiles >0){
+		numLeftFiles -= _numBufPages -1;
+		int numToMergeFiles = numLeftFiles > 0 ? (_numBufPages -1) : (numLeftFiles + _numBufPages -1);
+		if (MergeManyToOne(numToMergeFiles, ??,??)==FAIL) return FAIL;
+	}
+	return OK;
 }
 
 int Sort::CompareInt(const void *a, const void *b) { // same as compare string
