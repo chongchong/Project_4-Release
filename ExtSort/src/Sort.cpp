@@ -82,6 +82,9 @@ Sort::Sort(
 		passZeroFile.DeleteFile();
 		s = OK;
 	} else { // more passes
+		if (numTempFiles <= _numBufPages -1 /* cw474: equal ??? */ ) { // only need one merge
+
+		}
 
 	}
 
