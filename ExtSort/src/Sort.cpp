@@ -64,16 +64,16 @@ Sort::Sort(
 
 	// Pass 0
 	int numTempFiles = 0;
-	PassZero(numTempFiles);
+	if (PassZero(numTempFiles) != OK) { std::cerr << "PassZero failed." << std::endl; return; }
 	if (numTempFiles == 1) { // done, write out
 		RecordID rid; char *recPtr = (char *)malloc(_recLength); int recLen = _recLength;
-		char *fileName =CreateTempFilename(_outFile,0,1);
+		char *fileName = CreateTempFilename(_outFile,0,1);
 		HeapFile passZeroFile(fileName,s); // read temp file
-		assert(s == OK);
+		if (s != OK) { std::cerr << "Opening PassZero temp file failed." << std::endl; return; }
 		Scan *scan = passZeroFile.OpenScan(s);
-		assert(s == OK);
+		if (s != OK) { std::cerr << "Opening scan in PassZero failed." << std::endl; return; }
 		HeapFile output(_outFile, s);
-		assert(s == OK);
+		if (s != OK) { std::cerr << "Opening output file in PassZero failed." << std::endl; return; }
 		while (scan->GetNext(rid,recPtr,recLen) == OK) {
 			output.InsertRecord(recPtr,recLen,rid);
 		}
@@ -97,8 +97,8 @@ Status Sort::PassZero(int &numTempFiles) {
 	// Get input file
 	Status status;
 	HeapFile inputFile(_inFile, status);
-	assert(status == OK);
-	int numRecords = inputFile.GetNumOfRecords();
+	if (status != OK) return ReturnFAIL("Opening input file in PassZero function failed.");
+	int numRecords = inputFile.GetNumOfRecords(); 
 	int recCounter = 0;
 	//std::cout << "num of records is " << numRecords << std::endl;
 
@@ -111,7 +111,7 @@ Status Sort::PassZero(int &numTempFiles) {
 
 	// Open Scan
 	Scan *scan = inputFile.OpenScan(status); 
-	assert(status == OK);
+	if (status != OK) return ReturnFAIL("Opening scan in PassZero function failed.");
 	
 	// Sort
 	passZeroRuns = 0;
@@ -119,7 +119,8 @@ Status Sort::PassZero(int &numTempFiles) {
 		while (scan->GetNext(rid,recPtr,recLen) == OK) {
 			recCounter++;
 			// add to memory
-			memcpy(areaPtr,recPtr,recLen);
+			if (memcpy(areaPtr,recPtr,recLen) != areaPtr) 
+				return ReturnFAIL("Reading records to memory in PassZero function failed.");
 			areaPtr += recLen;
 			areaSize -= recLen;
 			if (areaSize < _recLength || recCounter == numRecords) { // can't fit another rec or all recs have been added
@@ -136,8 +137,8 @@ Status Sort::PassZero(int &numTempFiles) {
 				}
 				// write out
 				char *fileName = CreateTempFilename(_outFile,0,passZeroRuns);
-				HeapFile *tempFile =  new HeapFile(fileName,status);
-				assert(status == OK);
+				HeapFile *tempFile =  new HeapFile(fileName,status); // NO FREEING, need it later
+				if (status != OK) return ReturnFAIL("Opening temp file in PassZero function failed.");
 				areaPtr = area;
 				while (recCounter > 0) { // insert
 					tempFile->InsertRecord(areaPtr,_recLength,rid);
@@ -154,7 +155,7 @@ Status Sort::PassZero(int &numTempFiles) {
 
 	free(area);
 	free(recPtr);
-	return FAIL;
+	return OK;
 }
 
 Status Sort::PassOneAndBeyond(int numFiles) {
@@ -169,12 +170,13 @@ Status Sort::OneMergePass(int numStartFiles, int numPass, int &numEndFiles) {
 	return FAIL;
 }
 
-int Sort::CompareInt(const void *a, const void *b) {
-		const char **aa = (const char **)a; 
-		const char **bb = (const char **)b;
-		const int *ia = (int *)((*aa)+_sortKeyOffset);
-		const int *ib = (int *)((*bb)+_sortKeyOffset);
-		return _sortOrder == Ascending ? *ia - *ib : *ib - *ia; 
+int Sort::CompareInt(const void *a, const void *b) { // same as compare string
+		const char *sa = (const char *)a+_sortKeyOffset; 
+		const char *sb = (const char *)b+_sortKeyOffset;
+		//const int *ia = (int *)((*aa)+_sortKeyOffset);
+		//const int *ib = (int *)((*bb)+_sortKeyOffset);
+		//return _sortOrder == Ascending ? *ia - *ib : *ib - *ia; 
+		return _sortOrder == Ascending ? strcmp(sa, sb) : strcmp(sb, sa);
 	}
 
 int Sort::CompareString(const void *a, const void *b) {
@@ -183,4 +185,9 @@ int Sort::CompareString(const void *a, const void *b) {
 		//const char *sa = ((*aa)+_sortKeyOffset);
 		//const char *sb = ((*bb)+_sortKeyOffset);
 		return _sortOrder == Ascending ? strcmp(sa, sb) : strcmp(sb, sa);
-	}
+}
+
+Status Sort::ReturnFAIL(char *message) {
+	std::cerr << message << "\n" << std::endl;
+	return FAIL;
+}

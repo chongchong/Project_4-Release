@@ -47,6 +47,8 @@ private:
 
 	static int CompareString(const void *a, const void *b);
 
+	Status ReturnFAIL(char *message);
+
 private:
 	int _recLength;
 	int _numBufPages;
