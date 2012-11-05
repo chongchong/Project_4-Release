@@ -86,6 +86,7 @@ Sort::Sort(
 		s = OK;
 	} else { // more passes
 		if (PassOneAndBeyond(numTempFiles) != OK) { std::cerr << "PassOneAndBeyond failed." << std::endl; return; }
+		s = OK;
 	}
 
 	// Write out
@@ -162,8 +163,9 @@ Status Sort::PassZero(int &numTempFiles) {
 
 Status Sort::PassOneAndBeyond(int numFiles) {
 	passOneBeyondRuns = 0;
-	int numPass = 1, numEndFiles = 0, numStartFiles = passZeroRuns;
+	int numPass = 1, numStartFiles = passZeroRuns, numEndFiles;
 	do { 
+		numEndFiles = 0;
 		if (OneMergePass(numStartFiles, numPass, numEndFiles) != OK ) return ReturnFAIL("OneMergePass failed.");
 		numStartFiles = numEndFiles;
 		numPass++;
@@ -173,6 +175,7 @@ Status Sort::PassOneAndBeyond(int numFiles) {
 	Status s;
 	RecordID rid; char *recPtr = (char *)malloc(_recLength); int recLen = _recLength;
 	char *fileName = CreateTempFilename(_outFile,numPass-1,passOneBeyondRuns);
+	std::cout << "File opened in PassOneAndBeyond write-out is " << fileName << std::endl;
 	HeapFile file(fileName,s); // read temp file
 	if (s != OK) return ReturnFAIL("Opening PassOneAndBeyond temp file failed.");
 	Scan *scan = file.OpenScan(s);
@@ -222,6 +225,9 @@ Status Sort::MergeManyToOne(unsigned int numSourceFiles, HeapFile **source, Heap
 		int firstIndex = std::get<1>(first);
 		dest->InsertRecord(std::get<0>(first),recLen,rid); // add it to output file
 		recCounter++;
+		if (recCounter == 40) {
+			std::cout << "attention" << std::endl;
+		}
 		status = scanners[firstIndex]->GetNext(rid,recPtr,recLen); // try to move pointer
 		if (status == FAIL) return ReturnFAIL("Error scanning files in MergeManyToOne");
 		else if (status == OK) { // if there are still records in that file
@@ -247,19 +253,23 @@ Status Sort::OneMergePass(int numStartFiles, int numPass, int &numEndFiles) {
 		// Create an array of heap files
 		HeapFile **filesToMerge = new HeapFile *[numPagesToRead];
 		for (int i=0; i<numPagesToRead; i++) { // add files into array
-			HeapFile *hf = new HeapFile(CreateTempFilename(_outFile, numPass-1, fileCounter), status);
+			char *filename = CreateTempFilename(_outFile, numPass-1, fileCounter);
+			HeapFile *hf = new HeapFile(filename, status);
 			if (status != OK) return ReturnFAIL("Unable to read a file in OneMergePass.");
+			std::cout << "name of temp file read is " << filename << " and number of records in it is " << hf->GetNumOfRecords() << std::endl;
 			filesToMerge[i] = hf;
 			fileCounter++;
 			//delete hf; // ??
 		}
 		// Create an output temp file for this run
-		HeapFile *dest = new HeapFile(CreateTempFilename(_outFile, numPass, runCounter), status);
+		char *filename = CreateTempFilename(_outFile, numPass, runCounter);
+		HeapFile *dest = new HeapFile(filename, status);
 		passOneBeyondRuns = runCounter;
 		runCounter++; // <--------------------------------------------------------------------------------CHECK!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 		if (status != OK) return ReturnFAIL("Failed to create a file in OneMergePass.");
 		// Merge
 		if (MergeManyToOne(numPagesToRead,filesToMerge,dest) != OK) return ReturnFAIL("Failed to merge in OneMergePass.");
+		std::cout << "name of temp file written is " << filename << " and number of records in it is " << dest->GetNumOfRecords() << std::endl;
 		numEndFiles++;
 		delete filesToMerge; // and free each element in the array?
 	}
@@ -284,8 +294,8 @@ int Sort::CompareString(const void *a, const void *b) {
 }
 
 bool Sort::CompareForMerge(std::tuple<char *,int>& t1, std::tuple<char *,int>& t2) {
-	return _sortOrder == Ascending ? strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) <= 0 
-		: strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) >= 0; 
+	return _sortOrder == Ascending ? strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) < 0 
+		: strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) > 0; 
 }
 
 Status Sort::ReturnFAIL(char *message) {
