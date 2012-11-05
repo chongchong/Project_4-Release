@@ -254,12 +254,12 @@ Status Sort::OneMergePass(int numStartFiles, int numPass, int &numEndFiles) {
 			//delete hf; // ??
 		}
 		// Create an output temp file for this run
-		runCounter++; // <--------------------------------------------------------------------------------CHECK!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 		HeapFile *dest = new HeapFile(CreateTempFilename(_outFile, numPass, runCounter), status);
+		passOneBeyondRuns = runCounter;
+		runCounter++; // <--------------------------------------------------------------------------------CHECK!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 		if (status != OK) return ReturnFAIL("Failed to create a file in OneMergePass.");
 		// Merge
 		if (MergeManyToOne(numPagesToRead,filesToMerge,dest) != OK) return ReturnFAIL("Failed to merge in OneMergePass.");
-		passOneBeyondRuns = runCounter;
 		numEndFiles++;
 		delete filesToMerge; // and free each element in the array?
 	}
