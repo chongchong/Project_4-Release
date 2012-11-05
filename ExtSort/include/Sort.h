@@ -2,6 +2,7 @@
 #define __SORT__
 
 #include "minirel.h"
+#include <tuple>
 
 #define    PAGESIZE    MINIBASE_PAGESIZE
 
@@ -46,6 +47,8 @@ private:
 	static int CompareInt(const void *a, const void *b);
 
 	static int CompareString(const void *a, const void *b);
+
+	static bool CompareForMerge(std::tuple<char *,int>& t1, std::tuple<char *,int>& t2);
 
 	Status ReturnFAIL(char *message);
 
