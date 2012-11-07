@@ -292,11 +292,21 @@ int Sort::CompareString(const void *a, const void *b) {
 		//const char *sb = ((*bb)+_sortKeyOffset);
 		return _sortOrder == Ascending ? strcmp(sa, sb) : strcmp(sb, sa);
 }
-
+/*
 bool Sort::CompareForMerge(std::tuple<char *,int>& t1, std::tuple<char *,int>& t2) {
 	return _sortOrder == Ascending ? strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) < 0 
 		: strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) > 0; 
 }
+*/
+bool Sort::CompareForMerge(std::tuple<char *,int>& t1, std::tuple<char *,int>& t2) {
+     
+                                
+                                               return (CompareString(std::get<0>(t1),std::get<0>(t2))<0);
+                                  
+//        return _sortOrder == Ascending ? strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) < 0
+//                : strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) > 0;
+}
+
 
 Status Sort::ReturnFAIL(char *message) {
 	std::cerr << message << "\n" << std::endl;
