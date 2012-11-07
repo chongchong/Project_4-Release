@@ -59,7 +59,7 @@ private:
 	char *_outFile;
 	short *_fieldSizes;
 	int _sortKeyIndex;
-	AttrType _sortType;
+	//AttrType _sortType;
 	int passZeroRuns;
 	int passOneBeyondRuns;
 };

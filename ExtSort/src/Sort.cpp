@@ -14,6 +14,7 @@
 
 static int _sortKeyOffset = 0;
 static TupleOrder _sortOrder;
+static AttrType _sortType;
 
 //-------------------------------------------------------------------
 // Sort::CreateTempFilename
@@ -128,10 +129,10 @@ Status Sort::PassZero(int &numTempFiles) {
 				// sort
 				switch (_sortType) {
 					case attrInteger:
-						std::qsort(area,numRecForSort,_recLength,CompareInt);
+						std::qsort(area,recCounter,_recLength,CompareInt); //modified by cw474
 						break;
 					case attrString:
-						std::qsort(area,numRecForSort,_recLength,CompareString);
+						std::qsort(area,recCounter,_recLength,CompareString); //modified by cw474
 					default:
 						break;
 				}
@@ -142,15 +143,19 @@ Status Sort::PassZero(int &numTempFiles) {
 				if (status != OK) return ReturnFAIL("Opening temp file in PassZero function failed.");
 				areaPtr = area;
 				while (recCounter > 0) { // insert
+					//std::cout << atoi(areaPtr+_sortKeyOffset) << ";" ; // cw474: for debugging !!!!!!!!!!!!!!!!!!!!!
 					tempFile->InsertRecord(areaPtr,_recLength,rid);
 					recCounter--;
 					areaPtr += _recLength;
 				}
 				std::cout << "num of records in file is "<< tempFile->GetNumOfRecords() << std::endl;;
 				numTempFiles++;
-				areaPtr = area; // reset
 				areaSize = MINIBASE_PAGESIZE * _numBufPages;
+				//free(area); // modified by cw474 .... not sure if it's needed
+				//area = (char *)malloc(areaSize); // modified by cw474 .... not sure if it's needed
+				areaPtr = area; // reset
 				delete fileName;
+				
 			}
 		}
 	}
@@ -225,9 +230,10 @@ Status Sort::MergeManyToOne(unsigned int numSourceFiles, HeapFile **source, Heap
 		int firstIndex = std::get<1>(first);
 		dest->InsertRecord(std::get<0>(first),recLen,rid); // add it to output file
 		recCounter++;
-		if (recCounter == 40) {
-			std::cout << "attention" << std::endl;
-		}
+//		std::cout << atoi(std::get<0>(first)+_sortKeyOffset) << ";" ; // cw474: for debugging !!!!!!!!!!!!!!!!!!!!!
+//		if (recCounter == 40) {
+//			std::cout << "attention" << std::endl;
+//		}
 		status = scanners[firstIndex]->GetNext(rid,recPtr,recLen); // try to move pointer
 		if (status == FAIL) return ReturnFAIL("Error scanning files in MergeManyToOne");
 		else if (status == OK) { // if there are still records in that file
@@ -276,13 +282,16 @@ Status Sort::OneMergePass(int numStartFiles, int numPass, int &numEndFiles) {
 	return OK;
 }
 
-int Sort::CompareInt(const void *a, const void *b) { // same as compare string
+int Sort::CompareInt(const void *a, const void *b) { // modified by cw474
 		const char *sa = (const char *)a+_sortKeyOffset; 
 		const char *sb = (const char *)b+_sortKeyOffset;
+		int ia= atoi(sa);
+		int ib= atoi(sb);
 		//const int *ia = (int *)((*aa)+_sortKeyOffset);
 		//const int *ib = (int *)((*bb)+_sortKeyOffset);
 		//return _sortOrder == Ascending ? *ia - *ib : *ib - *ia; 
-		return _sortOrder == Ascending ? strcmp(sa, sb) : strcmp(sb, sa);
+		//return _sortOrder == Ascending ? strcmp(sa, sb) : strcmp(sb, sa);
+		return _sortOrder == Ascending ? (ia-ib) : (ib-ia);
 	}
 
 int Sort::CompareString(const void *a, const void *b) {
@@ -293,9 +302,18 @@ int Sort::CompareString(const void *a, const void *b) {
 		return _sortOrder == Ascending ? strcmp(sa, sb) : strcmp(sb, sa);
 }
 
-bool Sort::CompareForMerge(std::tuple<char *,int>& t1, std::tuple<char *,int>& t2) {
-	return _sortOrder == Ascending ? strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) < 0 
-		: strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) > 0; 
+bool Sort::CompareForMerge(std::tuple<char *,int>& t1, std::tuple<char *,int>& t2) { // modified by cw474
+switch (_sortType) {
+					case attrInteger:
+						return CompareInt(std::get<0>(t1),std::get<0>(t2))<0;
+						break;
+					case attrString:
+						return CompareString(std::get<0>(t1),std::get<0>(t2))<0;
+					default:
+						break;
+				}	
+//	return _sortOrder == Ascending ? strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) < 0 
+//		: strcmp(std::get<0>(t1)+_sortKeyOffset,std::get<0>(t2)+_sortKeyOffset) > 0; 
 }
 
 Status Sort::ReturnFAIL(char *message) {
