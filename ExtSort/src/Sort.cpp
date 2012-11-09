@@ -139,7 +139,7 @@ Status Sort::PassZero(int &numTempFiles) {
 				// write out
 				char *fileName = CreateTempFilename(_outFile,0,passZeroRuns);
 				passZeroRuns++;
-				HeapFile *tempFile =  new HeapFile(fileName,status); // NO FREEING, need it later
+				HeapFile *tempFile =  new HeapFile(fileName,status); 
 				if (status != OK) return ReturnFAIL("Opening temp file in PassZero function failed.");
 				areaPtr = area;
 				while (recCounter > 0) { // insert
@@ -152,7 +152,6 @@ Status Sort::PassZero(int &numTempFiles) {
 				areaPtr = area; // reset
 				delete fileName;
 				delete tempFile; 
-				
 			}
 		}
 	}
@@ -249,6 +248,9 @@ Status Sort::MergeManyToOne(unsigned int numSourceFiles, HeapFile **source, Heap
 	free(recPtr);
 	for (int i=0;i<numSourceFiles; i++) {
 		delete scanners[i];
+	}
+	for (int i=0;i<numSourceFiles;i++) {
+		free(recPtrArray[i]);
 	}
 	delete scanners;
 	delete recPtrArray;
