@@ -12,9 +12,9 @@
 #include <tuple>
 #include <algorithm>
 
-static int _sortKeyOffset = 0;
-static TupleOrder _sortOrder;
-static AttrType _sortType;
+int _sortKeyOffset = 0;
+TupleOrder _sortOrder;
+AttrType _sortType;
 
 //-------------------------------------------------------------------
 // Sort::CreateTempFilename
