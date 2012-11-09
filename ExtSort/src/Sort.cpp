@@ -151,6 +151,7 @@ Status Sort::PassZero(int &numTempFiles) {
 				areaSize = MINIBASE_PAGESIZE * _numBufPages;
 				areaPtr = area; // reset
 				delete fileName;
+				delete tempFile; 
 				
 			}
 		}
@@ -250,6 +251,7 @@ Status Sort::MergeManyToOne(unsigned int numSourceFiles, HeapFile **source, Heap
 		delete scanners[i];
 	}
 	delete scanners;
+	delete recPtrArray;
 	return OK;
 }
 
@@ -277,7 +279,6 @@ Status Sort::OneMergePass(int numStartFiles, int numPass, int &numEndFiles) {
 			if (status != OK) return ReturnFAIL("Unable to read a file in OneMergePass.");
 			filesToMerge[i] = hf;
 			fileCounter++;
-			//delete hf; // ??
 		}
 		// Create an output temp file for this run
 		char *filename = CreateTempFilename(_outFile, numPass, runCounter);
@@ -291,6 +292,7 @@ Status Sort::OneMergePass(int numStartFiles, int numPass, int &numEndFiles) {
 		for (int i=0;i<numPagesToRead;i++){
 			delete filesToMerge[i];
 		}
+		delete dest;
 		delete filesToMerge;
 		delete filename;
 	}
